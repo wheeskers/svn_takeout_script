@@ -5,7 +5,9 @@ Not intended for any practical purposes but to demonstrate a way to make a check
 
 Requirements
 ============
-(TBA)
+Ruby version 2.1+ and 'sqlite3' gem
+Zip 3.0+
+Subversion 1.9+
 
 Usage
 =====
