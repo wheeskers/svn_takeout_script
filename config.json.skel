@@ -1,5 +1,6 @@
 {
   "database": "db.sqlite",
+  "empty_checkout": true,
 
   "export": {
     "directory": "./export/",
