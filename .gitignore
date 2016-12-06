@@ -1,5 +1,5 @@
 *.log
-*.tmp
+*.json
 *.sqlite
 *.txt
 *.zip

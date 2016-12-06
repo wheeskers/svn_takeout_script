@@ -9,4 +9,11 @@ Requirements
 
 Usage
 =====
-(TBA)
+~~~
+$ ruby ./script.rb <your-repo-list>
+~~~
+Repository list format is:
+~~~
+<http(s) address of SVN repository>;<revision or null>
+~~~
+Please make sure file 'config.json' exists before first run.
