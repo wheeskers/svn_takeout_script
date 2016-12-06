@@ -1,0 +1,14 @@
+{
+  "database": "db.sqlite",
+
+  "export": {
+    "directory": "./export/",
+    "file_dir_format": "yyyy-mm-dd",
+    "file_stamp_format": "yyyy-mm-dd"
+  },
+
+  "log": {
+    "file":  "script_run.log",
+    "level": "INFO"
+  }
+}
