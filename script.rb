@@ -31,6 +31,21 @@ $log.formatter      = proc { |severity, datetime, progname, msg| "#{Time.now.str
 
 $log.info{ "Starting, log ready." }
 
+# Create new db object
+begin
+  $db = SQLite3::Database::new( $config['database'] )
+rescue Exception => e
+  $log.fatal{ "Something is wrong with sqlite3 db file or sqlite3 itself. Exception is: #{e}" }
+  exit 2
+end
+
+# DB store event method
+def store_event(db,n_event,n_result,n_details,n_files)
+  db.execute("INSERT INTO event_log (stamp, event,result,details,files) VALUES (CURRENT_TIMESTAMP,'#{n_event}','#{n_result}','#{n_details}','#{n_files}');")
+end
+#store_event(db,'test event','123','description is here','--')
+
+# Create an array with files to work with
 files = []
 ARGV.select{|arg|arg.match(/^[^\-]+/)}.each do |arg|
   if File::exist?(arg)
@@ -106,7 +121,7 @@ def handle_files(list)
 
     $log.debug{ "Subversion command line is: '#{cmd_line.join(' ')}'" }
 
-    next
+    #next
 
     svn_checkout_exit_status = nil
     svn_resulting_revision   = nil
@@ -115,6 +130,9 @@ def handle_files(list)
       pid = wait_thr.pid
       sta = wait_thr.value.exitstatus
       out = stdout.read
+
+      out_err = stderr.read
+      puts out_err
 
       svn_checkout_exit_status = wait_thr.value.exitstatus
       svn_resulting_revision = out.gsub(/\r?\n/,'').match(/(?<=Checked out revision )\d+/)
@@ -125,6 +143,9 @@ def handle_files(list)
     zip_exit_status = nil
 
     if svn_checkout_exit_status == 0
+        tcd_files = Dir::glob(tmp_checkout_dir)
+        store_event($db,'Succesfull checkout','0','Subversion process returned 0',"#{tcd_files.join(',')}")
+
         cmd_line_1 = [ "zip", "-r", "#{tmp_checkout_dir}-files-r#{svn_resulting_revision}.zip", tmp_checkout_dir ]
         $log.debug{ "Zip command line is: #{cmd_line_1.join(' ')}" }
         Open3::popen3( *cmd_line_1 ) do |stdin, stdout, stderr, wait_thr|
@@ -137,6 +158,7 @@ def handle_files(list)
     end
 
     if zip_exit_status == 0
+      store_event($db,'Files files are successfully packed','0','Zip archiver returned 0',"#{tmp_checkout_dir}-files-r#{svn_resulting_revision}.zip")
       $log.debug{ "Removing temporary working directory '#{tmp_checkout_dir}'" }
       FileUtils::rm_r(tmp_checkout_dir) if File::directory?(tmp_checkout_dir)
     else
