@@ -5,6 +5,7 @@ require 'uri'
 require 'json'
 require 'fileutils'
 require 'open3'
+require 'sqlite3'
 
 begin
   $config = JSON::parse(File.read("config.json"))
@@ -13,7 +14,13 @@ rescue
   exit 1
 end
 
-$log                = Logger.new("#{$config['log']['file']}")
+unless ARGV.any?{|arg|arg.match(/-s/)}
+  $log = Logger::new("#{$config['log']['file']}")
+else
+  $log = Logger::new(STDOUT)
+end
+
+#$log                = Logger.new("#{$config['log']['file']}")
 $log.sev_threshold  = eval "Logger::#{$config['log']['level']}"
 $log.progname       = 'SubversionCheckoutScript'
 $log.formatter      = proc { |severity, datetime, progname, msg| "#{Time.now.strftime('%Y-%m-%d %H:%M:%S')} [#{severity}] #{msg}\n" }
@@ -118,5 +125,6 @@ def handle_files(list)
 
 end
 
-tmp_repo_list = parse_in_file ARGV[0]
+# todo: work with multiple files from ARGV
+tmp_repo_list = parse_in_file ARGV.select{|arg|arg.match(/^[^\-]/)}[0]
 handle_files tmp_repo_list
