@@ -11,7 +11,7 @@ else
   cp -v config.json.skel config.json
 fi
 
-which ruby1 > /dev/null 2>&1
+which ruby > /dev/null 2>&1
 if [[ $? -eq 0 ]]; then
   echo "OK - Ruby exists in the system"
 else

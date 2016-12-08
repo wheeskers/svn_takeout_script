@@ -20,15 +20,9 @@ else
   $log = Logger::new(STDOUT)
 end
 
-#todo: delete this line after tests
-$log = Logger::new(STDOUT)
-
-# ----------------------------------------
 $log.level  = eval "Logger::#{$config['log']['level']}"
 $log.progname       = 'SubversionCheckoutScript'
 $log.formatter      = proc { |severity, datetime, progname, msg| "#{Time.now.strftime('%Y-%m-%d %H:%M:%S')} [#{severity}] #{msg}\n" }
-# ----------------------------------------
-
 $log.info{ "Starting, log ready." }
 
 # Create new db object
@@ -145,7 +139,7 @@ def handle_files(list)
     if svn_checkout_exit_status == 0
         # Only top directories are listed, use "/**/*" for more inclusive listing
         tcd_files = Dir::glob(tmp_checkout_dir+"/*")
-        store_event($db,'Succesfull checkout','0','Subversion process returned 0',"#{tcd_files.join(',')}")
+        store_event($db,'Succesfull checkout',"#{svn_checkout_exit_status}","Revision #{svn_resulting_revision}","#{tcd_files.join(',')}")
 
         cmd_line_1 = [ "zip", "-r", "#{tmp_checkout_dir}-files-r#{svn_resulting_revision}.zip", tmp_checkout_dir ]
         $log.debug{ "Zip command line is: #{cmd_line_1.join(' ')}" }
@@ -157,6 +151,7 @@ def handle_files(list)
         end
     else
        $log.error{ "Subversion error, do nothing..." }
+       store_event($db,'Checkout failed',"#{svn_checkout_exit_status}",'Subversion process error!','---')
     end
 
     # Remove temporary working directory if files are packed in zip archive
@@ -166,6 +161,7 @@ def handle_files(list)
       FileUtils::rm_r(tmp_checkout_dir) if File::directory?(tmp_checkout_dir)
     else
       $log.error{ "Zip returned error, do nothing..." }
+      store_event($db,'Files are NOT packed, zip error',"#{zip_exit_status}","Tail line: #{zip_exit_lastline}",'--')
     end
   end
 

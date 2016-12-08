@@ -1,15 +1,13 @@
 {
   "database": "db.sqlite",
-  "empty_checkout": true,
+  "empty_checkout": false,
 
   "export": {
-    "directory": "./export/",
-    "file_dir_format": "yyyy-mm-dd",
-    "file_stamp_format": "yyyy-mm-dd"
+    "directory": "./export/"
   },
 
   "log": {
     "file":  "script_run.log",
-    "level": "INFO"
+    "level": "DEBUG"
   }
 }
