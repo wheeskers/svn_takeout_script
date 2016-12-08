@@ -34,6 +34,7 @@ $log.info{ "Starting, log ready." }
 # Create new db object
 begin
   $db = SQLite3::Database::new( $config['database'] )
+  $db.execute('CREATE TABLE IF NOT EXISTS event_log (id INTEGER PRIMARY KEY AUTOINCREMENT, stamp TEXT, event TEXT, result TEXT, details TEXT, files TEXT);')
 rescue Exception => e
   $log.fatal{ "Something is wrong with sqlite3 db file or sqlite3 itself. Exception is: #{e}" }
   exit 2
@@ -41,9 +42,8 @@ end
 
 # DB store event method
 def store_event(db,n_event,n_result,n_details,n_files)
-  db.execute("INSERT INTO event_log (stamp, event,result,details,files) VALUES (CURRENT_TIMESTAMP,'#{n_event}','#{n_result}','#{n_details}','#{n_files}');")
+  db.execute("INSERT INTO event_log (stamp, event,result,details,files) VALUES (datetime(CURRENT_TIMESTAMP,'localtime'),'#{n_event}','#{n_result}','#{n_details}','#{n_files}');")
 end
-#store_event(db,'test event','123','description is here','--')
 
 # Create an array with files to work with
 files = []
@@ -127,30 +127,30 @@ def handle_files(list)
     svn_resulting_revision   = nil
 
     Open3::popen3( *cmd_line ) do |stdin, stdout, stderr, wait_thr|
+      stdin.puts "Entered popen3 block"
+      stdin.close
+
       pid = wait_thr.pid
-      sta = wait_thr.value.exitstatus
-      out = stdout.read
-
-      out_err = stderr.read
-      puts out_err
-
+      stdout.each_line { |line| svn_resulting_revision = line.match(/(?<=Checked out revision )\d+/) }
       svn_checkout_exit_status = wait_thr.value.exitstatus
-      svn_resulting_revision = out.gsub(/\r?\n/,'').match(/(?<=Checked out revision )\d+/)
     end
 
     $log.info{ "Subversion process exit status: #{svn_checkout_exit_status} Checked out revision: #{svn_resulting_revision}" }
 
-    zip_exit_status = nil
+    zip_exit_status   = nil
+    zip_exit_lastline = nil
 
     if svn_checkout_exit_status == 0
-        tcd_files = Dir::glob(tmp_checkout_dir)
+        # Only top directories are listed, use "/**/*" for more inclusive listing
+        tcd_files = Dir::glob(tmp_checkout_dir+"/*")
         store_event($db,'Succesfull checkout','0','Subversion process returned 0',"#{tcd_files.join(',')}")
 
         cmd_line_1 = [ "zip", "-r", "#{tmp_checkout_dir}-files-r#{svn_resulting_revision}.zip", tmp_checkout_dir ]
         $log.debug{ "Zip command line is: #{cmd_line_1.join(' ')}" }
         Open3::popen3( *cmd_line_1 ) do |stdin, stdout, stderr, wait_thr|
+          stdin.close
+          stdout.each_line{|line|}
           pid = wait_thr.pid
-          sta = wait_thr.value.exitstatus
           zip_exit_status = wait_thr.value.exitstatus
         end
     else
@@ -158,7 +158,7 @@ def handle_files(list)
     end
 
     if zip_exit_status == 0
-      store_event($db,'Files files are successfully packed','0','Zip archiver returned 0',"#{tmp_checkout_dir}-files-r#{svn_resulting_revision}.zip")
+      store_event($db,'Files files are successfully packed (zip acrhiver success)','0',"Tail line: #{zip_exit_lastline}","#{tmp_checkout_dir}-files-r#{svn_resulting_revision}.zip")
       $log.debug{ "Removing temporary working directory '#{tmp_checkout_dir}'" }
       FileUtils::rm_r(tmp_checkout_dir) if File::directory?(tmp_checkout_dir)
     else
