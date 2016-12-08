@@ -20,7 +20,7 @@ else
   $log = Logger::new(STDOUT)
 end
 
-$log.level  = eval "Logger::#{$config['log']['level']}"
+$log.level          = eval "Logger::#{$config['log']['level']}"
 $log.progname       = 'SubversionCheckoutScript'
 $log.formatter      = proc { |severity, datetime, progname, msg| "#{Time.now.strftime('%Y-%m-%d %H:%M:%S')} [#{severity}] #{msg}\n" }
 $log.info{ "Starting, log ready." }
@@ -99,23 +99,18 @@ def handle_files(list)
       $log.info{ "Skipping broken link - check format manually: #{link}" }
       next
     end
-
     # Create 'package' name based on repo location
     repo_name_fingerprint = URI::parse(line[:link]).path.to_s.gsub(/\/|_|\./,'-').match(/\w.*\w/)
     $log.info "Using repo name part as package name --> #{repo_name_fingerprint}"
-
     revision = line[:revision]
     repolink = line[:link]
-
     tmp_checkout_dir = "#{$config['export']['directory']}#{repo_name_fingerprint}"
-
     # Basic SVN checkout
     cmd_line = [ "svn", "checkout", "#{repolink}", tmp_checkout_dir ]
     # Use empty checkout if this is enabled in config
     cmd_line.insert(2, "--depth=empty") if $config['empty_checkout']
     # Use specific revision if it is specified
     cmd_line.insert(2, "-r#{revision}") if revision.to_s.match(/\d+/)
-
     $log.debug{ "Subversion command line is: '#{cmd_line.join(' ')}'" }
 
     svn_checkout_pid         = nil
@@ -140,7 +135,6 @@ def handle_files(list)
         # Only top directories are listed, use "/**/*" for more inclusive listing
         tcd_files = Dir::glob(tmp_checkout_dir+"/*")
         store_event($db,'Succesfull checkout',"#{svn_checkout_exit_status}","Revision #{svn_resulting_revision}","#{tcd_files.join(',')}")
-
         cmd_line_1 = [ "zip", "-r", "#{tmp_checkout_dir}-files-r#{svn_resulting_revision}.zip", tmp_checkout_dir ]
         $log.debug{ "Zip command line is: #{cmd_line_1.join(' ')}" }
         Open3::popen3( *cmd_line_1 ) do |stdin, stdout, stderr, wait_thr|
@@ -164,7 +158,6 @@ def handle_files(list)
       store_event($db,'Files are NOT packed, zip error',"#{zip_exit_status}","Tail line: #{zip_exit_lastline}",'--')
     end
   end
-
 end
 
 # Calling to methods
