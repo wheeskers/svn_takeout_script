@@ -56,6 +56,7 @@ ARGV.select{|arg|arg.match(/^[^\-]+/)}.each do |arg|
   end
 end
 
+# Check if there are no valid files to work with
 if files.empty?
   $log.error{ "No valid filenames passed as arguments, exiting now..." }
   exit 1
@@ -64,6 +65,7 @@ else
   $log.debug{ "Input file list: #{files.inspect}" }
 end
 
+# Parse file into a Hash (we need to have distinct repo address and version)
 def parse_in_file(filename)
   $log.info{ "Working with file: '#{filename}'" }
   export = []
@@ -84,17 +86,19 @@ def parse_in_file(filename)
 end
 
 def handle_files(list)
-
-  #create export directory if it does not exist yet
+  # Create export directory if it does not exist yet
   FileUtils::mkdir_p($config['export']['directory']) unless File.directory?($config['export']['directory'])
 
+  # Process each repo and revision from Hash
   list.each_with_index do |line,index|
+    # Check if URI is correct
     begin
       link = URI::parse(line[:link])
     rescue Exception => e
       $log.error{ "Unable to parse repo URL: #{e}" }
       next
     end
+    # Check if URI is URL and uses HTTP or HTTPS
     if link.kind_of?(URI::HTTPS) || link.kind_of?(URI::HTTP)
       $log.info{ "Link accepted as correct: #{link}" }
     else
@@ -102,6 +106,7 @@ def handle_files(list)
       next
     end
 
+    # Create 'package' name based on repo location
     repo_name_fingerprint = URI::parse(line[:link]).path.to_s.gsub(/\/|_|\./,'-').match(/\w.*\w/)
     $log.info "Using repo name part as package name --> #{repo_name_fingerprint}"
 
@@ -112,25 +117,21 @@ def handle_files(list)
 
     # Basic SVN checkout
     cmd_line = [ "svn", "checkout", "#{repolink}", tmp_checkout_dir ]
-
     # Use empty checkout if this is enabled in config
     cmd_line.insert(2, "--depth=empty") if $config['empty_checkout']
-
     # Use specific revision if it is specified
     cmd_line.insert(2, "-r#{revision}") if revision.to_s.match(/\d+/)
 
     $log.debug{ "Subversion command line is: '#{cmd_line.join(' ')}'" }
 
-    #next
-
+    svn_checkout_pid         = nil
     svn_checkout_exit_status = nil
     svn_resulting_revision   = nil
 
+    # Run Subversion from system shell as separate process
     Open3::popen3( *cmd_line ) do |stdin, stdout, stderr, wait_thr|
-      stdin.puts "Entered popen3 block"
       stdin.close
-
-      pid = wait_thr.pid
+      svn_checkout_pid = wait_thr.pid
       stdout.each_line { |line| svn_resulting_revision = line.match(/(?<=Checked out revision )\d+/) }
       svn_checkout_exit_status = wait_thr.value.exitstatus
     end
@@ -140,6 +141,7 @@ def handle_files(list)
     zip_exit_status   = nil
     zip_exit_lastline = nil
 
+    # Run zip archiver if Subversion process is successfull
     if svn_checkout_exit_status == 0
         # Only top directories are listed, use "/**/*" for more inclusive listing
         tcd_files = Dir::glob(tmp_checkout_dir+"/*")
@@ -157,6 +159,7 @@ def handle_files(list)
        $log.error{ "Subversion error, do nothing..." }
     end
 
+    # Remove temporary working directory if files are packed in zip archive
     if zip_exit_status == 0
       store_event($db,'Files files are successfully packed (zip acrhiver success)','0',"Tail line: #{zip_exit_lastline}","#{tmp_checkout_dir}-files-r#{svn_resulting_revision}.zip")
       $log.debug{ "Removing temporary working directory '#{tmp_checkout_dir}'" }
@@ -175,3 +178,4 @@ files.each do |f|
   $log.debug{ "Extracted data: #{tmp_repo_list.inspect}" }
   handle_files tmp_repo_list
 end
+
