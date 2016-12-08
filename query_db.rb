@@ -21,7 +21,7 @@ when /--last/
   limit = ARGV[0].match(/(?<=last\=)\d+/)
   limit.nil? ? limit='1' : limit=limit.to_s
   puts "Showing last #{limit} log records"
-  command = "SELECT * FROM event_log ORDER BY stamp DESC LIMIT(#{limit});"
+  command = "SELECT * FROM event_log ORDER BY id DESC LIMIT(#{limit});"
 when /--all/
   mode = :normal
   puts "Showing all stored log records (1000 records limit)"
